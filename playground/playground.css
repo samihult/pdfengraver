@@ -1,0 +1,62 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+}
+#app > nav {
+  flex: 0 0 auto;
+}
+#app > main {
+  flex: 1 1 auto;
+}
+#app > main > #control {
+  background: #838383;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+#app > main > #control #html-editor-container {
+  flex: 1 1 auto;
+  position: relative;
+}
+#app > main > #control #html-editor-container .inner-container {
+  width: 100%;
+  height: 100%;
+}
+#app > main > #result {
+  background: #eee;
+  position: relative;
+}
+#app > main > #result iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background-color: white;
+}
+
+.split {
+  display: flex;
+  flex-direction: row;
+}
+
+.gutter {
+  background-color: #eee;
+  background-repeat: no-repeat;
+  background-position: 50%;
+}
+
+.gutter.gutter-horizontal {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==");
+  cursor: col-resize;
+}
+
+/*# sourceMappingURL=playground.css.map */

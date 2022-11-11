@@ -1,0 +1,38 @@
+{
+  "name": "pdfengraver",
+  "version": "1.0.0",
+  "description": "Yet another headless Chrome PDF generator",
+  "main": "index.js",
+  "engines": {
+    "node": "18.12.1"
+  },
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samihult/pdfengraver.git"
+  },
+  "keywords": [
+    "PDF",
+    "HTML",
+    "Headless",
+    "Chrome"
+  ],
+  "author": "Sami Hult <sami.hult@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samihult/pdfengraver/issues"
+  },
+  "homepage": "https://github.com/samihult/pdfengraver#readme",
+  "dependencies": {
+    "body-parser": "^1.20.1",
+    "chrome-remote-interface-extra": "^1.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "form-data": "^4.0.0",
+    "handlebars": "^4.7.7"
+  },
+  "devDependencies": {
+    "prettier": "^2.7.1",
+    "sass": "^1.56.1"
+  }
+}
