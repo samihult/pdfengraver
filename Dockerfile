@@ -2,7 +2,7 @@ FROM justinribeiro/chrome-headless:stable
 
 LABEL name="pdfengraver" \
 	maintainer="Sami Hult <sami.hult@gmail.com>" \
-	version="1.0.0" \
+	version="1.1.0" \
 	description="Yet another headless Chrome PDF generator"
 
 USER root

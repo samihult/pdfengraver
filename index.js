@@ -13,7 +13,13 @@ const baseUrl = process.env.PE_BASE_URL || "http://localhost:5045";
 
 const app = express();
 
-app.use(cors());
+const corsMiddleware = cors({
+  exposedHeaders: ["Server-Timing", "X-Powered-By"],
+});
+
+app.use(corsMiddleware);
+app.options("*", corsMiddleware);
+
 app.use(bodyParser.json());
 app.use(
   bodyParser.text({
@@ -41,10 +47,17 @@ function serverTimings() {
     .join(", ");
 }
 
-app.options("*", cors());
+function resolveContentLocation(req) {
+  let contentLocation = req.get("Content-Location") || "file:///";
+  if (!contentLocation.endsWith("/")) {
+    contentLocation += "/";
+  }
+  return contentLocation;
+}
 
 app.post("/conv", async (req, res) => {
-  const { pdf, versionInfo } = await generatePdf(req.body);
+  const contentLocation = resolveContentLocation(req);
+  const { pdf, versionInfo } = await generatePdf(req.body, { contentLocation });
 
   res
     .header("Server-Timing", serverTimings())
@@ -59,6 +72,8 @@ app.post("/conv", async (req, res) => {
 });
 
 app.post("/tmpl/:filename", async (req, res) => {
+  const contentLocation = resolveContentLocation(req);
+
   const templateStartTime = performance.now();
 
   const { filename } = req.params;
@@ -72,7 +87,7 @@ app.post("/tmpl/:filename", async (req, res) => {
 
   performanceValues.tmpl = { dur: templateEndTime - templateStartTime };
 
-  const { pdf, versionInfo } = await generatePdf(html);
+  const { pdf, versionInfo } = await generatePdf(html, { contentLocation });
 
   res
     .header("Server-Timing", serverTimings())
@@ -106,7 +121,7 @@ app.listen(apiPort, () => {
   console.log(listeningMessage);
 });
 
-async function generatePdf(html) {
+async function generatePdf(html, { contentLocation }) {
   let cdpClient;
   let client;
   let browser;
@@ -132,19 +147,33 @@ async function generatePdf(html) {
 
     await page.setRequestInterception(true);
     page.on("request", (request) => {
-      if (request.url() === "file:///") {
+      if (request.url() === contentLocation) {
         return request.respond({
           contentType: "text/html",
           body: html,
         });
       }
+
       if (process.env.PE_TRACE_REQ) {
         console.log(request);
       }
+
+      if (request.url().startsWith(contentLocation)) {
+        const relativeLocation = request.url().slice(contentLocation.length);
+        return readFile(path.join("/assets", relativeLocation))
+          .then((fileContents) => {
+            return request.respond({ body: fileContents });
+          })
+          .catch((error) => {
+            console.warn("Failed to serve local asset, reason:", error);
+            request.continue();
+          });
+      }
+
       request.continue();
     });
 
-    await page.goto("file:///", { waitUntil: "networkidle2" });
+    await page.goto(contentLocation, { waitUntil: "networkidle2" });
     const loadEndTime = performance.now();
     performanceValues.load = { dur: loadEndTime - loadStartTime };
 

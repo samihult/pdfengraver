@@ -7,7 +7,11 @@ Yet another headless Chrome PDF generator.
 In docker:
 
 ```shell
+# Run the server
 docker run --rm -it -p 5045:5045 --name pe samihult/pdfengraver
+
+# Open the playground
+open http://localhost:5045
 ```
 
 ## Convert HTML
@@ -51,16 +55,27 @@ Server-Timing headers can be interpreted as follows:
 | rend | Rendering PDF                             |
 | tot  | Total time                                |
 
+## Location
+
+The page to be rendered is virtually served at `file:///`, unless the location is overridden
+by passing a `Content-Location` header. For example:
+
+```shell
+curl -X POST localhost:5045/conv \ 
+  -H "Content-Type: text/html" \
+  -H "Content-Location: https://en.wikipedia.org/wiki/" \
+  ...
+```
+
+This affects what resources you will be able to use and how the links look like.
+
+NOTE! The URL needs to have a directory path. If it doesn't end with a slash, then
+`/` will be appended.
+
 ## Local assets
 
-Assets can be mounted at `/assets`. You can imagine then your HTML payload to be served at
-the server root and the assets next to it. The HTML is, in fact, virtually served at `file:///`,
-so all of these point to the same file:
-
-- `img/picture.png`
-- `/img/picture.png`
-- `file:/img/picture.png`
-- `file:///img/picture.png`
+Assets can be mounted at `/assets`. They will be accessible as if they were served next to your
+html page; see the chapter about "Location" above.
 
 Mounting the volume:
 
@@ -70,11 +85,11 @@ docker run --rm -it -p 5045:5045 \
   --name pe samihult/pdfengraver
 ```
 
-Then, for example, having `picture.png` in the mounted `assets` directory, it can be referenced
+Then, for example, having `picture.png` in the mounted `assets/img` directory, it can be referenced
 like this in HTML.
 
 ```html
-<img src="picture.png" />
+<img src="img/picture.png" />
 ```
 
 ## Install templates
@@ -113,7 +128,7 @@ option could come in handy for some applications.
 You can pass the following environment variables to configure the service:
 
 | Variable              | Description                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
+|-----------------------| ------------------------------------------------------------------------------------------------------- |
 | PE_QUIET              | Minimal noise                                                                                           |
 | PE_SILENT             | Only errors and specifically enabled noise                                                              |
 | PE_BASE_URL           | Base URL for linking, defaults to `http://localhost:5045`                                               |

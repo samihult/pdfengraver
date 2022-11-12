@@ -5,7 +5,6 @@ CDP_PORT=9222
 google-chrome --headless --no-first-run \
   --disable-web-security \
   --enable-local-file-accesses \
-  --file-url-path-alias=/=assets \
   --allow-file-access-from-files \
   --no-sandbox --disable-setuid-sandbox \
   --disable-dev-shm-usage --disable-gpu \
