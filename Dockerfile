@@ -8,8 +8,10 @@ LABEL name="pdfengraver" \
 USER root
 
 WORKDIR /home/chrome
+COPY --chown=chrome:chrome src ./src
 COPY --chown=chrome:chrome playground ./playground
-COPY --chown=chrome:chrome entrypoint.sh index.js package.json package-lock.json ./
+COPY --chown=chrome:chrome package.json package-lock.json ./
+COPY --chown=chrome:chrome entrypoint.sh ./
 
 RUN set -x \
     && apt-get update && apt-get install -y gnupg2 curl netcat jq \

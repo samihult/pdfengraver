@@ -17,4 +17,4 @@ while ! nc -z localhost $CDP_PORT; do
   sleep 0.2
 done
 
-node index.js
+node src/index.js

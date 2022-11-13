@@ -3,10 +3,19 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 
 const { performance } = require("perf_hooks");
-const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
-const Handlebars = require("handlebars");
 const { readFile } = require("fs/promises");
 const path = require("path");
+
+const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
+const Handlebars = require("handlebars");
+
+const { resolveContentLocation } = require("./resolveContentLocation");
+const { performanceValues, serverTimings } = require("./serverTimings");
+
+const {
+  withTimeout,
+  resolvePerformanceBudget,
+} = require("./performanceBudgeting");
 
 const apiPort = 5045;
 const baseUrl = process.env.PE_BASE_URL || "http://localhost:5045";
@@ -30,111 +39,6 @@ app.use(
 
 if (!process.env.PE_DISABLE_PLAYGROUND) {
   app.use(express.static("playground"));
-}
-
-const performanceValues = {};
-
-function serverTimings() {
-  return Object.entries(performanceValues)
-    .map(([key, { dur, desc }]) => {
-      const parts = [
-        key,
-        `dur=${dur.toFixed(3)}`,
-        desc && `desc="${desc.replaceAll('"', '\\""')}"`,
-      ];
-      return parts.filter(Boolean).join(";");
-    })
-    .join(", ");
-}
-
-function resolveContentLocation(req) {
-  let contentLocation = req.get("Content-Location") || "file:///";
-
-  if (!contentLocation.endsWith("/")) {
-    contentLocation += "/";
-  }
-
-  return contentLocation;
-}
-
-const minTimeouts = {
-  tmpl: 50,
-  init: 10,
-  load: 200,
-  rend: 100,
-  total: 1000,
-};
-
-const defaultPerformanceBudget = {
-  tmpl: 2 * 1000,
-  init: 200,
-  load: 30 * 1000,
-  rend: 30 * 1000,
-  total: 60 * 1000,
-};
-
-const maxTimeout = Math.max(Number(process.env.PE_MAX_BUDGET || 5 * 60 * 1000));
-
-const trim = (text) => text.trim();
-
-function resolvePerformanceBudget(req) {
-  const timeoutHeader = req.get("Performance-Budget") || "";
-  const timeoutEntries = JSON.parse(JSON.stringify(defaultPerformanceBudget));
-  const headerEntries = timeoutHeader.split(",").map(trim);
-
-  for (const headerEntry of headerEntries) {
-    if (!headerEntry) {
-      continue;
-    }
-
-    const [headerEntryName, headerEntryValue] = headerEntry
-      .split("=")
-      .map(trim);
-
-    if (!timeoutEntries[headerEntryName]) {
-      continue;
-    }
-
-    timeoutEntries[headerEntryName] = resolveTimeout(
-      headerEntryName,
-      headerEntryValue
-    );
-  }
-
-  return timeoutEntries;
-}
-
-function resolveTimeout(name, input) {
-  const value = input && Number(input || 0);
-
-  if (!value || !Number.isFinite(value)) {
-    return defaultPerformanceBudget[name];
-  }
-
-  const minTimeout = minTimeouts[name];
-
-  if (value < minTimeout) {
-    return minTimeout;
-  }
-
-  if (value > maxTimeout) {
-    return maxTimeout;
-  }
-
-  return value;
-}
-
-async function withTimeout(timeouts, name, callback) {
-  return new Promise((resolve, reject) => {
-    const timeoutHandle = setTimeout(() => {
-      reject(new Error(`Budget exceeded (${name}, ${timeouts[name]} ms)`));
-    }, timeouts[name]);
-
-    Promise.resolve(callback())
-      .then(resolve)
-      .catch(reject)
-      .finally(() => clearTimeout(timeoutHandle));
-  });
 }
 
 app.post("/conv", async (req, res, next) => {
@@ -164,7 +68,7 @@ app.post("/conv", async (req, res, next) => {
   }
 });
 
-app.post("/tmpl/:filename", async (req, res) => {
+app.post("/tmpl/:filename", async (req, res, next) => {
   try {
     const contentLocation = resolveContentLocation(req);
     const timeouts = resolvePerformanceBudget(req);
@@ -288,6 +192,8 @@ async function generatePdf(html, { contentLocation, timeouts }) {
             waitUntil: "networkidle2",
             timeout: timeouts.load,
           });
+
+          await page.evaluateHandle("document.fonts.ready");
 
           resolve({ page });
         } catch (error) {
