@@ -1,4 +1,4 @@
-# PDFEngraver
+# PdfEngraver
 
 Yet another headless Chrome PDF generator.
 
@@ -57,11 +57,11 @@ Server-Timing headers can be interpreted as follows:
 
 ## Location
 
-The page to be rendered is virtually served at `file:///`, unless the location is overridden
-by passing a `Content-Location` header. For example:
+The page to be rendered is virtually served at `file:///`, unless the location is
+overridden by passing a `Content-Location` header. For example:
 
 ```shell
-curl -X POST localhost:5045/conv \ 
+curl -X POST localhost:5045/conv \
   -H "Content-Type: text/html" \
   -H "Content-Location: https://en.wikipedia.org/wiki/" \
   ...
@@ -72,10 +72,30 @@ This affects what resources you will be able to use and how the links look like.
 NOTE! The URL needs to have a directory path. If it doesn't end with a slash, then
 `/` will be appended.
 
+## Performance budgeting
+
+Time budgets for different phases can be set using `Performance-Budget` header on the
+request. The budgeting follows the same naming as `Server-Timing` header, explained
+about. The maximum timeout can be set by the environment variable `PE_MAX_BUDGET`.
+
+| name  | Default (ms) | Minimum (ms) | Maximum (ms)  |
+| ----- | ------------ | ------------ | ------------- |
+| tmpl  | 2 \* 000     | 50           | PE_MAX_BUDGET |
+| init  | 200          | 10           | PE_MAX_BUDGET |
+| load  | 30 \* 1000   | 200          | PE_MAX_BUDGET |
+| rend  | 30 \* 1000   | 100          | PE_MAX_BUDGET |
+| total | 60 \* 1000   | 1000         | PE_MAX_BUDGET |
+
+The format is a key-value pair list:
+
+```http request
+Performance-Budget: load=60, total=120000
+```
+
 ## Local assets
 
-Assets can be mounted at `/assets`. They will be accessible as if they were served next to your
-html page; see the chapter about "Location" above.
+Assets can be mounted at `/assets`. They will be accessible as if they were served
+next to your html page; see the chapter about "Location" above.
 
 Mounting the volume:
 
@@ -85,8 +105,8 @@ docker run --rm -it -p 5045:5045 \
   --name pe samihult/pdfengraver
 ```
 
-Then, for example, having `picture.png` in the mounted `assets/img` directory, it can be referenced
-like this in HTML.
+Then, for example, having `picture.png` in the mounted `assets/img` directory, it can
+be referenced like this in HTML.
 
 ```html
 <img src="img/picture.png" />
@@ -94,10 +114,11 @@ like this in HTML.
 
 ## Install templates
 
-[Handlebars](https://handlebarsjs.com/) templates are supported. They will be placed on the asset
-volume with a naming scheme of your choosing.
+[Handlebars](https://handlebarsjs.com/) templates are supported. They will be placed
+on the asset volume with a naming scheme of your choosing.
 
-For example, a file named `report.html` could reside on the asset volume. It could look like this:
+For example, a file named `report.html` could reside on the asset volume. It could look
+like this:
 
 ```html
 <html>
@@ -128,11 +149,12 @@ option could come in handy for some applications.
 You can pass the following environment variables to configure the service:
 
 | Variable              | Description                                                                                             |
-|-----------------------| ------------------------------------------------------------------------------------------------------- |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
 | PE_QUIET              | Minimal noise                                                                                           |
 | PE_SILENT             | Only errors and specifically enabled noise                                                              |
 | PE_BASE_URL           | Base URL for linking, defaults to `http://localhost:5045`                                               |
 | PE_DISABLE_PLAYGROUND | Disable playground at /                                                                                 |
 | PE_PAYLOAD_LIMIT      | Maximum acceptable payload size. For format, see https://www.npmjs.com/package/bytes. Defaults to 10MB. |
+| PE_MAX_BUDGET         | Maximum acceptable time budget value in ms. Minimum value is 1000. Defaults to 5 \* 60 \* 1000.         |
 | PE_TRACE_CONSOLE      | Log all console events                                                                                  |
 | PE_TRACE_REQ          | Log all requests                                                                                        |

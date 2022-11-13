@@ -82,6 +82,30 @@ function getContentLocation() {
   return contentLocationInput.value || undefined;
 }
 
+function getPerformanceBudgetString() {
+  const performanceBudgetingForm = document.getElementById(
+    "performance-budgeting-input"
+  );
+
+  const values = {
+    templ: performanceBudgetingForm.querySelector('[name="templ"]').value,
+    init: performanceBudgetingForm.querySelector('[name="init"]').value,
+    load: performanceBudgetingForm.querySelector('[name="load"]').value,
+    rend: performanceBudgetingForm.querySelector('[name="rend"]').value,
+    total: performanceBudgetingForm.querySelector('[name="total"]').value,
+  };
+
+  const parts = [];
+  for (const [name, value] of Object.entries(values)) {
+    if (!value || !Number.isFinite(Number(value))) {
+      continue;
+    }
+    parts.push(`${name.trim()}=${value.trim()}`);
+  }
+
+  return parts.join(", ");
+}
+
 function setupSplitView() {
   Split(["#control", "#result"], {
     sizes: [35, 65],
@@ -90,15 +114,16 @@ function setupSplitView() {
 
 function sendHtml() {
   const html = window.peHtmlEditor.getValue();
+
   const host = getPeHost();
   const location = getContentLocation();
+  const performanceBudget = getPerformanceBudgetString();
 
   const url = new URL("/conv", host);
 
   const headers = [["Content-Type", "text/html"]];
-  if (location) {
-    headers.push(["Content-Location", location]);
-  }
+  location && headers.push(["Content-Location", location]);
+  performanceBudget && headers.push(["Performance-Budget", performanceBudget]);
 
   fetch(url.toString(), {
     method: "POST",
@@ -128,6 +153,9 @@ function setServerTimingString(serverTiming) {
         ])
     );
 
+    container.querySelector(".tmpl").innerText = timings.tmpl
+      ? timings.tmpl.dur
+      : "–";
     container.querySelector(".init").innerText = timings.init
       ? timings.init.dur
       : "–";

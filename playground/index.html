@@ -59,64 +59,146 @@
     <script src="playground.js"></script>
     <link rel="stylesheet" href="./playground.css" />
 
-    <title>PDFEngraver</title>
+    <title>PdfEngraver</title>
   </head>
 
   <body>
     <div id="app">
-      <nav class="navbar navbar-dark bg-dark d-flex">
-        <form id="server-host-input" style="flex: 1 0 200px" class="mr-3">
-          <div class="input-group bg-dark" title="PDFEngraver server host">
-            <div class="input-group-prepend">
-              <span class="input-group-text" id="server-host-desc">
-                <span class="material-symbols-outlined mr-2">computer</span>
-                Host</span
-              >
-            </div>
-            <input
-              type="text"
-              name="host"
-              class="form-control"
-              placeholder=""
-              aria-label="Host"
-              aria-describedby="server-host-desc"
-            />
-          </div>
-        </form>
-
-        <form id="content-location-input" style="flex: 2 0 200px" class="mr-3">
-          <div
-            class="input-group bg-dark"
-            title="Virtual location of the converted page"
-          >
-            <div class="input-group-prepend">
-              <span class="input-group-text" id="content-location-desc">
-                <span class="material-symbols-outlined mr-2">home</span>
-                Location</span
-              >
-            </div>
-            <input
-              type="text"
-              name="content-location"
-              class="form-control"
-              placeholder="E.g. https://en.wikipedia.org/wiki/"
-              aria-label="Content location"
-              aria-describedby="content-location-desc"
-            />
-          </div>
-        </form>
-
-        <a
-          href="http://pdfengraver.io"
-          target="_blank"
-          class="navbar-brand d-flex align-items-center"
-          >PDFEngraver
-          <span class="ml-2 material-symbols-outlined">open_in_new</span></a
-        >
-      </nav>
-
       <main class="split">
         <section id="control" class="bg-dark d-flex flex-column">
+          <form id="server-host-input" style="flex: 0 0 auto" class="mx-3 mt-3">
+            <div class="input-group bg-dark" title="PdfEngraver server host">
+              <div class="input-group-prepend">
+                <span class="input-group-text" id="server-host-desc">
+                  <span class="material-symbols-outlined mr-2">computer</span>
+                  Host</span
+                >
+              </div>
+              <input
+                type="text"
+                name="host"
+                class="form-control"
+                placeholder=""
+                aria-label="Host"
+                aria-describedby="server-host-desc"
+              />
+            </div>
+          </form>
+
+          <form
+            id="performance-budgeting-input"
+            style="flex: 0 0 auto"
+            onsubmit="return false"
+          >
+            <div class="mx-3 mt-3 d-flex flex-row flex-wrap align-items-center">
+              <div class="mr-2" style="flex: 0 0 auto">
+                <small>Perf. budget</small>
+              </div>
+
+              <div
+                class="input-group input-group-sm bg-dark mr-2"
+                title="Templating budget"
+                style="flex: 1 1 30%"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="budget-templ-desc">
+                    Templ</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="templ"
+                  class="form-control"
+                  placeholder="(default)"
+                  aria-label="Templating"
+                  aria-describedby="budget-templ-desc"
+                />
+              </div>
+
+              <div
+                class="input-group input-group-sm bg-dark"
+                title="Initialization budget"
+                style="flex: 1 1 30%"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="budget-init-desc">
+                    Init</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="init"
+                  class="form-control"
+                  placeholder="(default)"
+                  aria-label="Initialization"
+                  aria-describedby="budget-init-desc"
+                />
+              </div>
+            </div>
+
+            <div class="mx-3 mt-2 d-flex flex-row flex-wrap">
+              <div
+                class="input-group input-group-sm bg-dark mr-2"
+                title="Loading budget"
+                style="flex: 1 1 30%"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="budget-load-desc">
+                    Load</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="load"
+                  class="form-control"
+                  placeholder="(default)"
+                  aria-label="Loading"
+                  aria-describedby="budget-load-desc"
+                />
+              </div>
+
+              <div
+                class="input-group input-group-sm bg-dark mr-2"
+                title="Rendering budget"
+                style="flex: 1 1 30%"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="budget-rend-desc">
+                    Rend</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="rend"
+                  class="form-control"
+                  placeholder="(default)"
+                  aria-label="Rendering"
+                  aria-describedby="budget-load-desc"
+                />
+              </div>
+
+              <div
+                class="input-group input-group-sm bg-dark"
+                title="Total budget"
+                style="flex: 1 1 30%"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="budget-total-desc">
+                    Total</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="total"
+                  class="form-control"
+                  placeholder="(default)"
+                  aria-label="Total"
+                  aria-describedby="budget-total-desc"
+                />
+              </div>
+            </div>
+          </form>
+
           <div id="html-editor-container" class="p-3">
             <div class="inner-container"><!-- Monaco HMTL editor --></div>
           </div>
@@ -138,9 +220,10 @@
             <div class="px-3">
               <p class="m-0">
                 <small id="server-timing-string">
-                  Init: <span class="init">–</span>&emsp; Load:
-                  <span class="load">–</span><br />
-                  Rend: <span class="rend">–</span>&emsp;Total:
+                  Server timing:&emsp; Tmpl: <span class="tmpl">–</span>&emsp;
+                  Init: <span class="init">–</span><br />
+                  Load: <span class="load">–</span>&emsp; Rend:
+                  <span class="rend">–</span>&emsp;Total:
                   <span class="tot">–</span>
                 </small>
               </p>
@@ -148,7 +231,43 @@
           </div>
         </section>
 
-        <section id="result" class="p-3 bg-dark">
+        <section id="result" class="p-3 bg-dark d-flex flex-column">
+          <nav class="navbar navbar-dark bg-dark d-flex m-0 p-0 mb-3">
+            <form
+              id="content-location-input"
+              style="flex: 2 0 200px"
+              class="mr-3"
+            >
+              <div
+                class="input-group bg-dark"
+                title="Virtual location of the converted page"
+              >
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="content-location-desc">
+                    <span class="material-symbols-outlined mr-2">home</span>
+                    Location</span
+                  >
+                </div>
+                <input
+                  type="text"
+                  name="content-location"
+                  class="form-control"
+                  placeholder="E.g. https://en.wikipedia.org/wiki/"
+                  aria-label="Content location"
+                  aria-describedby="content-location-desc"
+                />
+              </div>
+            </form>
+
+            <a
+              href="http://pdfengraver.io"
+              target="_blank"
+              class="navbar-brand d-flex align-items-center"
+              >PdfEngraver
+              <span class="ml-2 material-symbols-outlined">open_in_new</span></a
+            >
+          </nav>
+
           <iframe id="pdf-viewer" name="pdf-viewer"></iframe>
         </section>
       </main>
