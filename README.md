@@ -141,8 +141,14 @@ cat <<EOF | curl -X POST localhost:5045/tmpl/report.html \
 EOF
 ```
 
-Because you lack full control of Handlebars, this is not going to work in all cases, but the
-option could come in handy for some applications.
+PdfEngraver provides a helper to include other template files as partials.
+
+```handlebars
+{{register partial="myPartial" from="myPartialFile.hbs"}}
+<div>{{> myPartial }}</div>
+```
+
+Because you lack full control of Handlebars, this is not going to work in all cases.
 
 ## Configuration
 

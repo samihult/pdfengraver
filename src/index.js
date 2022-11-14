@@ -4,6 +4,8 @@ const cors = require("cors");
 
 const { performance } = require("perf_hooks");
 const { readFile } = require("fs/promises");
+const mime = require("mime-types");
+const { readFileSync } = require("fs");
 const path = require("path");
 
 const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
@@ -80,7 +82,40 @@ app.post("/tmpl/:filename", async (req, res, next) => {
         const src = await readFile(path.join("/assets", filename), {
           encoding: "utf8",
         });
+
+        Handlebars.registerHelper("register", ({ hash }) => {
+          if (!hash.partial || !hash.from) {
+            throw new Error(
+              'Helper "register" requires hash values "partial" and "hash"'
+            );
+          }
+          let externalSrc, externalTemplate;
+          const srcPath = path.join("/assets", hash.from);
+          try {
+            externalSrc = readFileSync(srcPath, "utf-8");
+          } catch (error) {
+            console.error(
+              "Failed to read external partial %s from %s",
+              hash.partial,
+              srcPath
+            );
+            return;
+          }
+          try {
+            externalTemplate = Handlebars.compile(externalSrc);
+          } catch (error) {
+            console.error(
+              "Failed to compile external partial %s from %s",
+              hash.partial,
+              hash.from
+            );
+            return;
+          }
+          Handlebars.registerPartial(hash.partial, externalTemplate);
+        });
+
         const template = Handlebars.compile(src);
+        // const template = handlebars.compile(src);
         return template(req.body);
       });
       const templateEndTime = performance.now();
@@ -175,10 +210,12 @@ async function generatePdf(html, { contentLocation, timeouts }) {
               const relativeLocation = request
                 .url()
                 .slice(contentLocation.length);
-              return readFile(path.join("/assets", relativeLocation))
-                .then((fileContents) => {
-                  return request.respond({ body: fileContents });
-                })
+              const absolutePath = path.join("/assets", relativeLocation);
+              const contentType = mime.lookup(absolutePath);
+              return readFile(absolutePath)
+                .then((fileContents) =>
+                  request.respond({ body: fileContents, contentType })
+                )
                 .catch((error) => {
                   console.warn("Failed to serve local asset, reason:", error);
                   request.continue();
@@ -189,11 +226,21 @@ async function generatePdf(html, { contentLocation, timeouts }) {
           });
 
           await page.goto(contentLocation, {
-            waitUntil: "networkidle2",
+            waitUntil: "networkidle0",
             timeout: timeouts.load,
           });
-
-          await page.evaluateHandle("document.fonts.ready");
+          await page.evaluateHandle(`
+            Promise.all([
+              document.fonts.ready,
+              ...Array.from(document.images).map((image) => 
+                new Promise((resolve) => {
+                  image.addEventListener('load', resolve);                  
+                  if (image.complete) {
+                    resolve();
+                  }
+                })
+              )
+            ])`);
 
           resolve({ page });
         } catch (error) {
