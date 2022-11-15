@@ -112,7 +112,7 @@ be referenced like this in HTML.
 <img src="img/picture.png" />
 ```
 
-## Install templates
+## Templates
 
 [Handlebars](https://handlebarsjs.com/) templates are supported. They will be placed
 on the asset volume with a naming scheme of your choosing.
@@ -141,14 +141,14 @@ cat <<EOF | curl -X POST localhost:5045/tmpl/report.html \
 EOF
 ```
 
-PdfEngraver provides a helper to include other template files as partials.
+PdfEngraver provides helpers to include templates from other files.
 
 ```handlebars
-{{register partial="myPartial" from="myPartialFile.hbs"}}
-<div>{{> myPartial }}</div>
+{{include "header.html"}}
+{{register "reusable-block.handlebars" as="reusableBlock"}}
+...
+{{> reusableBlock}}
 ```
-
-Because you lack full control of Handlebars, this is not going to work in all cases.
 
 ## Configuration
 

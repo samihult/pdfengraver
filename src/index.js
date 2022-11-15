@@ -18,6 +18,7 @@ const {
   withTimeout,
   resolvePerformanceBudget,
 } = require("./performanceBudgeting");
+const fs = require("fs");
 
 const apiPort = 5045;
 const baseUrl = process.env.PE_BASE_URL || "http://localhost:5045";
@@ -83,39 +84,42 @@ app.post("/tmpl/:filename", async (req, res, next) => {
           encoding: "utf8",
         });
 
-        Handlebars.registerHelper("register", ({ hash }) => {
-          if (!hash.partial || !hash.from) {
-            throw new Error(
-              'Helper "register" requires hash values "partial" and "hash"'
-            );
+        const handlebars = Handlebars.create();
+
+        handlebars.registerHelper("include", function (file, { data }) {
+          if (!file) {
+            throw new Error('Usage: {{include "path/file.ext"}}');
           }
-          let externalSrc, externalTemplate;
-          const srcPath = path.join("/assets", hash.from);
-          try {
-            externalSrc = readFileSync(srcPath, "utf-8");
-          } catch (error) {
-            console.error(
-              "Failed to read external partial %s from %s",
-              hash.partial,
-              srcPath
-            );
-            return;
-          }
-          try {
-            externalTemplate = Handlebars.compile(externalSrc);
-          } catch (error) {
-            console.error(
-              "Failed to compile external partial %s from %s",
-              hash.partial,
-              hash.from
-            );
-            return;
-          }
-          Handlebars.registerPartial(hash.partial, externalTemplate);
+          const srcPath = path.join("/assets", file);
+          const src = readFileSync(srcPath, "utf-8");
+          const tmpl = handlebars.compile(src, { compat: true });
+
+          return new handlebars.SafeString(tmpl(data.root));
         });
 
-        const template = Handlebars.compile(src);
-        // const template = handlebars.compile(src);
+        const registeredPartials = {};
+        const originalResolvePartial = handlebars.VM.resolvePartial;
+        handlebars.VM.resolvePartial = (partial, context, options) => {
+          return !registeredPartials[options.name]
+            ? originalResolvePartial(partial, context, options)
+            : registeredPartials[options.name](context);
+        };
+
+        handlebars.registerHelper("register", function (file, options) {
+          const name = options.hash.as || file;
+
+          if (typeof file !== "string" || typeof name !== "string") {
+            throw new Error(
+              'Usage: {{register "file.ext"}} or {{register "path/file.ext" as="partial"}}'
+            );
+          }
+
+          const srcPath = path.join("/assets", file);
+          const src = readFileSync(srcPath, "utf-8");
+          registeredPartials[name] = handlebars.compile(src);
+        });
+
+        const template = handlebars.compile(src);
         return template(req.body);
       });
       const templateEndTime = performance.now();
