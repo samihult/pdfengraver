@@ -8,13 +8,10 @@ LABEL name="pdfengraver" \
 USER root
 
 WORKDIR /home/chrome
-COPY --chown=chrome:chrome src ./src
-COPY --chown=chrome:chrome playground ./playground
 COPY --chown=chrome:chrome package.json package-lock.json ./
-COPY --chown=chrome:chrome entrypoint.sh ./
 
 RUN set -x \
-    && apt-get update && apt-get install -y gnupg2 curl netcat jq \
+    && apt-get update && apt-get install -y tini procps gnupg2 curl netcat jq \
     && NODE_VERSION=$(jq -r .engines.node package.json) \
     && DEB_FILE="nodejs_${NODE_VERSION}-1nodesource1_amd64.deb" \
     && curl -sLO "https://deb.nodesource.com/node_18.x/pool/main/n/nodejs/${DEB_FILE}" \
@@ -24,11 +21,14 @@ RUN set -x \
     && apt-get update && apt-get install -y yarn \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --chown=chrome:chrome src ./src
+COPY --chown=chrome:chrome playground ./playground
+
 USER chrome
 RUN npm install --omit=dev --quiet
 
 VOLUME /local-assets
 EXPOSE 5045
 
-ENTRYPOINT [ "./entrypoint.sh" ]
-CMD []
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+CMD ["node", "src/index.js"]

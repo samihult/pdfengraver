@@ -1,18 +1,19 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-
 const { performance } = require("perf_hooks");
 const { readFile } = require("fs/promises");
 const mime = require("mime-types");
 const { readFileSync } = require("fs");
 const path = require("path");
+const puppeteer = require("puppeteer");
 
-const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
+// const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
 const Handlebars = require("handlebars");
 
 const { resolveContentLocation } = require("./resolveContentLocation");
 const { performanceValues, serverTimings } = require("./serverTimings");
+const { browserPool } = require("./browserPool");
 
 const {
   withTimeout,
@@ -43,196 +44,221 @@ if (!process.env.PE_DISABLE_PLAYGROUND) {
   app.use(express.static("playground"));
 }
 
-app.post("/conv", async (req, res, next) => {
-  try {
-    const contentLocation = resolveContentLocation(req);
-    const timeouts = resolvePerformanceBudget(req);
+async function run() {
+  app.post("/conv", async (req, res, next) => {
+    try {
+      const contentLocation = resolveContentLocation(req);
+      const timeouts = resolvePerformanceBudget(req);
 
-    await withTimeout(timeouts, "total", async () => {
-      const { pdf, versionInfo } = await generatePdf(req.body, {
-        contentLocation,
-        timeouts,
-      });
-
-      res
-        .header("Server-Timing", serverTimings())
-        .header(
-          "X-Powered-By",
-          `${versionInfo.product}/${versionInfo.revision}; ` +
-            `CDP/${versionInfo.protocolVersion}; ` +
-            `V8/${versionInfo.jsVersion}`
-        )
-        .contentType("application/pdf")
-        .send(pdf);
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/tmpl/:filename", async (req, res, next) => {
-  try {
-    const contentLocation = resolveContentLocation(req);
-    const timeouts = resolvePerformanceBudget(req);
-
-    await withTimeout(timeouts, "total", async () => {
-      const templateStartTime = performance.now();
-      const html = await withTimeout(timeouts, "tmpl", async () => {
-        const { filename } = req.params;
-        const src = await readFile(path.join("/assets", filename), {
-          encoding: "utf8",
+      await withTimeout(timeouts, "total", async () => {
+        const { pdf, version /*versionInfo*/ } = await generatePdf(req.body, {
+          contentLocation,
+          timeouts,
         });
 
-        const handlebars = Handlebars.create();
+        res
+          .header("Server-Timing", serverTimings())
+          .header(
+            "X-Powered-By",
+            version
+            // `${versionInfo.product}/${versionInfo.revision}; ` +
+            //   `CDP/${versionInfo.protocolVersion}; ` +
+            //   `V8/${versionInfo.jsVersion}`
+          )
+          .contentType("application/pdf")
+          .send(pdf);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
-        handlebars.registerHelper("include", function (file, { data }) {
-          if (!file) {
-            throw new Error('Usage: {{include "path/file.ext"}}');
+  app.post("/tmpl/:filename", async (req, res, next) => {
+    try {
+      const contentLocation = resolveContentLocation(req);
+      const timeouts = resolvePerformanceBudget(req);
+
+      await withTimeout(timeouts, "total", async () => {
+        const templateStartTime = performance.now();
+        const html = await withTimeout(timeouts, "tmpl", async () => {
+          const { filename } = req.params;
+          const src = await readFile(path.join("/assets", filename), {
+            encoding: "utf8",
+          });
+
+          const handlebars = Handlebars.create();
+
+          handlebars.registerHelper("include", function (file, { data }) {
+            if (!file) {
+              throw new Error('Usage: {{include "path/file.ext"}}');
+            }
+            const srcPath = path.join("/assets", file);
+            const src = readFileSync(srcPath, "utf-8");
+            const tmpl = handlebars.compile(src, { compat: true });
+
+            return new handlebars.SafeString(tmpl(data.root));
+          });
+
+          const registeredPartials = {};
+          const originalResolvePartial = handlebars.VM.resolvePartial;
+          handlebars.VM.resolvePartial = (partial, context, options) => {
+            return !registeredPartials[options.name]
+              ? originalResolvePartial(partial, context, options)
+              : registeredPartials[options.name](context);
+          };
+
+          handlebars.registerHelper("register", function (file, options) {
+            const name = options.hash.as || file;
+
+            if (typeof file !== "string" || typeof name !== "string") {
+              throw new Error(
+                'Usage: {{register "file.ext"}} or {{register "path/file.ext" as="partial"}}'
+              );
+            }
+
+            const srcPath = path.join("/assets", file);
+            const src = readFileSync(srcPath, "utf-8");
+            registeredPartials[name] = handlebars.compile(src);
+          });
+
+          const template = handlebars.compile(src);
+          return template(req.body);
+        });
+        const templateEndTime = performance.now();
+        performanceValues.tmpl = { dur: templateEndTime - templateStartTime };
+
+        const { pdf, version /*versionInfo*/ } = await generatePdf(html, {
+          contentLocation,
+          timeouts,
+        });
+
+        res
+          .header("Server-Timing", serverTimings())
+          .header(
+            "X-Powered-By",
+            version
+            // `${versionInfo.product}/${versionInfo.revision}; ` +
+            //   `CDP/${versionInfo.protocolVersion}; ` +
+            //   `V8/${versionInfo.jsVersion}`
+          )
+          .contentType("application/pdf")
+          .send(pdf);
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  const listeningMessage = process.env.PE_SILENT
+    ? ""
+    : `\nListening on ${apiPort}.` +
+      (process.env.PE_QUIET
+        ? ""
+        : `\nPlayground ${
+            process.env.PE_DISABLE_PLAYGROUND
+              ? "disabled"
+              : "enabled at " + baseUrl
           }
-          const srcPath = path.join("/assets", file);
-          const src = readFileSync(srcPath, "utf-8");
-          const tmpl = handlebars.compile(src, { compat: true });
-
-          return new handlebars.SafeString(tmpl(data.root));
-        });
-
-        const registeredPartials = {};
-        const originalResolvePartial = handlebars.VM.resolvePartial;
-        handlebars.VM.resolvePartial = (partial, context, options) => {
-          return !registeredPartials[options.name]
-            ? originalResolvePartial(partial, context, options)
-            : registeredPartials[options.name](context);
-        };
-
-        handlebars.registerHelper("register", function (file, options) {
-          const name = options.hash.as || file;
-
-          if (typeof file !== "string" || typeof name !== "string") {
-            throw new Error(
-              'Usage: {{register "file.ext"}} or {{register "path/file.ext" as="partial"}}'
-            );
-          }
-
-          const srcPath = path.join("/assets", file);
-          const src = readFileSync(srcPath, "utf-8");
-          registeredPartials[name] = handlebars.compile(src);
-        });
-
-        const template = handlebars.compile(src);
-        return template(req.body);
-      });
-      const templateEndTime = performance.now();
-      performanceValues.tmpl = { dur: templateEndTime - templateStartTime };
-
-      const { pdf, versionInfo } = await generatePdf(html, {
-        contentLocation,
-        timeouts,
-      });
-
-      res
-        .header("Server-Timing", serverTimings())
-        .header(
-          "X-Powered-By",
-          `${versionInfo.product}/${versionInfo.revision}; ` +
-            `CDP/${versionInfo.protocolVersion}; ` +
-            `V8/${versionInfo.jsVersion}`
-        )
-        .contentType("application/pdf")
-        .send(pdf);
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-const listeningMessage = process.env.PE_SILENT
-  ? ""
-  : `\nListening on ${apiPort}.` +
-    (process.env.PE_QUIET
-      ? ""
-      : `\nPlayground ${
-          process.env.PE_DISABLE_PLAYGROUND
-            ? "disabled"
-            : "enabled at " + baseUrl
-        }
   
 For additional information, please refer to:
 - https://hub.docker.com/u/samihult/pdfengraver 
 - https://github.com/samihult/pdfengraver  
 `);
 
-app.listen(apiPort, () => {
-  console.log(listeningMessage);
-});
+  app.listen(apiPort, () => {
+    console.log(listeningMessage);
+  });
 
-async function generatePdf(html, { contentLocation, timeouts }) {
-  let client;
-  let browser;
-  let versionInfo;
+  async function generatePdf(html, { contentLocation, timeouts }) {
+    let page;
+    // let client;
+    let browser;
+    // let versionInfo;
+    let version;
 
-  const startTime = performance.now();
-  try {
-    const browserStartTime = performance.now();
-    await withTimeout(timeouts, "init", async () => {
-      client = await CRIExtra({ host: "localhost", port: 9222 });
-      browser = await Browser.create(client, {
-        contextIds: [],
-        ignoreHTTPSErrors: true,
-      });
-      versionInfo = await browser.versionInfo();
-    });
-    const browserEndTime = performance.now();
-    performanceValues.init = { dur: browserEndTime - browserStartTime };
+    const startTime = performance.now();
+    try {
+      const loadStartTime = performance.now();
+      const { page } = await withTimeout(timeouts, "load", async () => {
+        return new Promise(async (resolve, reject) => {
+          const browserStartTime = performance.now();
+          await withTimeout(timeouts, "init", async () => {
+            // client = await CRIExtra({ host: "localhost", port: 9222 });
+            // browser = await puppeteer.launch({
+            //   product: "chrome",
+            //   args: [
+            //     "--no-first-run",
+            //     "--no-zygote",
+            //     "--disable-web-security",
+            //     "--enable-local-file-accesses",
+            //     "--allow-file-access-from-files",
+            //     "--no-sandbox",
+            //     "--disable-setuid-sandbox",
+            //     "--disable-dev-shm-usage",
+            //     "--disable-gpu",
+            //     "--disable-audio-input",
+            //     "--disable-audio-output",
+            //     "--disable-breakpad",
+            //     "--no-crash-upload",
+            //   ],
+            // });
+            browser = await browserPool.acquire();
+            // browser = await Browser.create(client, {
+            //   contextIds: [],
+            //   ignoreHTTPSErrors: true,
+            // });
+            // versionInfo = await browser.versionInfo();
+            version = await browser.version();
+          });
+          const browserEndTime = performance.now();
+          performanceValues.init = { dur: browserEndTime - browserStartTime };
 
-    const loadStartTime = performance.now();
-    const { page } = await withTimeout(timeouts, "load", async () => {
-      return new Promise(async (resolve, reject) => {
-        const page = await browser.newPage();
-        page.on("error", reject);
-        page.on("pageerror", reject);
+          const page = await browser.newPage();
+          page.on("error", reject);
+          page.on("pageerror", reject);
 
-        try {
-          if (process.env.PE_TRACE_CONSOLE) {
-            page.on("console", console.log);
-          }
-
-          await page.setRequestInterception(true);
-          page.on("request", (request) => {
-            if (request.url() === contentLocation) {
-              return request.respond({
-                contentType: "text/html",
-                body: html,
-              });
+          try {
+            if (process.env.PE_TRACE_CONSOLE) {
+              page.on("console", console.log);
             }
 
-            if (process.env.PE_TRACE_REQ) {
-              console.log(request);
-            }
-
-            if (request.url().startsWith(contentLocation)) {
-              const relativeLocation = request
-                .url()
-                .slice(contentLocation.length);
-              const absolutePath = path.join("/assets", relativeLocation);
-              const contentType = mime.lookup(absolutePath);
-              return readFile(absolutePath)
-                .then((fileContents) =>
-                  request.respond({ body: fileContents, contentType })
-                )
-                .catch((error) => {
-                  console.warn("Failed to serve local asset, reason:", error);
-                  request.continue();
+            await page.setRequestInterception(true);
+            page.on("request", (request) => {
+              if (request.url() === contentLocation) {
+                return request.respond({
+                  contentType: "text/html",
+                  body: html,
                 });
-            }
+              }
 
-            request.continue();
-          });
+              if (process.env.PE_TRACE_REQ) {
+                console.log(request);
+              }
 
-          await page.goto(contentLocation, {
-            waitUntil: "networkidle0",
-            timeout: timeouts.load,
-          });
-          await page.evaluateHandle(`
+              if (request.url().startsWith(contentLocation)) {
+                const relativeLocation = request
+                  .url()
+                  .slice(contentLocation.length);
+                const absolutePath = path.join("/assets", relativeLocation);
+                const contentType = mime.lookup(absolutePath);
+                return readFile(absolutePath)
+                  .then((fileContents) =>
+                    request.respond({ body: fileContents, contentType })
+                  )
+                  .catch((error) => {
+                    console.warn("Failed to serve local asset, reason:", error);
+                    request.continue();
+                  });
+              }
+
+              request.continue();
+            });
+
+            await page.goto(contentLocation, {
+              waitUntil: "networkidle0",
+              timeout: timeouts.load,
+            });
+            await page.evaluateHandle(`
             Promise.all([
               document.fonts.ready,
               ...Array.from(document.images).map((image) => 
@@ -245,40 +271,52 @@ async function generatePdf(html, { contentLocation, timeouts }) {
               )
             ])`);
 
-          resolve({ page });
-        } catch (error) {
-          reject(error);
-        }
+            resolve({ page });
+          } catch (error) {
+            reject(error);
+          }
+        });
       });
-    });
-    const loadEndTime = performance.now();
-    performanceValues.load = { dur: loadEndTime - loadStartTime };
+      const loadEndTime = performance.now();
+      performanceValues.load = { dur: loadEndTime - loadStartTime };
 
-    const renderStartTime = performance.now();
-    const pdf = await withTimeout(timeouts, "rend", () =>
-      page.pdf({
-        printBackground: true,
-        preferCSSPageSize: true,
-        displayHeaderFooter: false,
-      })
-    );
-    const renderEndTime = performance.now();
-    performanceValues.rend = { dur: renderEndTime - renderStartTime };
+      const renderStartTime = performance.now();
+      const pdf = await withTimeout(timeouts, "rend", () =>
+        page.pdf({
+          printBackground: true,
+          preferCSSPageSize: true,
+          displayHeaderFooter: false,
+        })
+      );
+      const renderEndTime = performance.now();
+      performanceValues.rend = { dur: renderEndTime - renderStartTime };
 
-    return { versionInfo, pdf };
-  } finally {
-    if (browser) {
-      await browser.disconnect();
-    } else if (client) {
-      await client.close();
+      return { version, /*versionInfo*/ pdf };
+    } finally {
+      if (page) {
+        await page.close();
+      }
+
+      if (browser) {
+        await browserPool.destroy(browser);
+        // await browser.close();
+        // } else if (client) {
+        //   await client.close();
+      }
+
+      const endTime = performance.now();
+      performanceValues.tot = { dur: endTime - startTime };
     }
-
-    const endTime = performance.now();
-    performanceValues.tot = { dur: endTime - startTime };
   }
+
+  app.use((error, req, res, next) => {
+    console.error(error);
+    res.status(500).send(error.message);
+  });
 }
 
-app.use((error, req, res, next) => {
+run().catch((error) => {
+  console.error("FATAL ERROR");
   console.error(error);
-  res.status(500).send(error.message);
+  process.exit(1);
 });

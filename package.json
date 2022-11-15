@@ -1,6 +1,6 @@
 {
   "name": "pdfengraver",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Yet another headless Chrome PDF generator",
   "main": "index.js",
   "engines": {
@@ -25,12 +25,13 @@
   "homepage": "https://github.com/samihult/pdfengraver#readme",
   "dependencies": {
     "body-parser": "^1.20.1",
-    "chrome-remote-interface-extra": "^1.1.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "form-data": "^4.0.0",
+    "generic-pool": "^3.9.0",
     "handlebars": "^4.7.7",
-    "mime-types": "^2.1.35"
+    "mime-types": "^2.1.35",
+    "puppeteer": "^19.2.2"
   },
   "devDependencies": {
     "prettier": "^2.7.1",

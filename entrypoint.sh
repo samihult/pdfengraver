@@ -2,7 +2,8 @@
 
 CDP_PORT=9222
 
-google-chrome --headless --no-first-run \
+google-chrome --headless \
+  --no-first-run --no-zygote \
   --disable-web-security \
   --enable-local-file-accesses \
   --allow-file-access-from-files \
