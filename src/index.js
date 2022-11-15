@@ -18,7 +18,6 @@ const {
   withTimeout,
   resolvePerformanceBudget,
 } = require("./performanceBudgeting");
-const fs = require("fs");
 
 const apiPort = 5045;
 const baseUrl = process.env.PE_BASE_URL || "http://localhost:5045";
