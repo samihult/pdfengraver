@@ -8,7 +8,6 @@ const { readFileSync } = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
 
-// const { CRIExtra, Browser } = require("chrome-remote-interface-extra");
 const Handlebars = require("handlebars");
 
 const { resolveContentLocation } = require("./resolveContentLocation");
@@ -51,20 +50,14 @@ async function run() {
       const timeouts = resolvePerformanceBudget(req);
 
       await withTimeout(timeouts, "total", async () => {
-        const { pdf, version /*versionInfo*/ } = await generatePdf(req.body, {
+        const { pdf, version } = await generatePdf(req.body, {
           contentLocation,
           timeouts,
         });
 
         res
           .header("Server-Timing", serverTimings())
-          .header(
-            "X-Powered-By",
-            version
-            // `${versionInfo.product}/${versionInfo.revision}; ` +
-            //   `CDP/${versionInfo.protocolVersion}; ` +
-            //   `V8/${versionInfo.jsVersion}`
-          )
+          .header("X-Powered-By", version)
           .contentType("application/pdf")
           .send(pdf);
       });
@@ -127,20 +120,14 @@ async function run() {
         const templateEndTime = performance.now();
         performanceValues.tmpl = { dur: templateEndTime - templateStartTime };
 
-        const { pdf, version /*versionInfo*/ } = await generatePdf(html, {
+        const { pdf, version } = await generatePdf(html, {
           contentLocation,
           timeouts,
         });
 
         res
           .header("Server-Timing", serverTimings())
-          .header(
-            "X-Powered-By",
-            version
-            // `${versionInfo.product}/${versionInfo.revision}; ` +
-            //   `CDP/${versionInfo.protocolVersion}; ` +
-            //   `V8/${versionInfo.jsVersion}`
-          )
+          .header("X-Powered-By", version)
           .contentType("application/pdf")
           .send(pdf);
       });
@@ -171,9 +158,7 @@ For additional information, please refer to:
 
   async function generatePdf(html, { contentLocation, timeouts }) {
     let page;
-    // let client;
     let browser;
-    // let versionInfo;
     let version;
 
     const startTime = performance.now();
@@ -183,31 +168,7 @@ For additional information, please refer to:
         return new Promise(async (resolve, reject) => {
           const browserStartTime = performance.now();
           await withTimeout(timeouts, "init", async () => {
-            // client = await CRIExtra({ host: "localhost", port: 9222 });
-            // browser = await puppeteer.launch({
-            //   product: "chrome",
-            //   args: [
-            //     "--no-first-run",
-            //     "--no-zygote",
-            //     "--disable-web-security",
-            //     "--enable-local-file-accesses",
-            //     "--allow-file-access-from-files",
-            //     "--no-sandbox",
-            //     "--disable-setuid-sandbox",
-            //     "--disable-dev-shm-usage",
-            //     "--disable-gpu",
-            //     "--disable-audio-input",
-            //     "--disable-audio-output",
-            //     "--disable-breakpad",
-            //     "--no-crash-upload",
-            //   ],
-            // });
             browser = await browserPool.acquire();
-            // browser = await Browser.create(client, {
-            //   contextIds: [],
-            //   ignoreHTTPSErrors: true,
-            // });
-            // versionInfo = await browser.versionInfo();
             version = await browser.version();
           });
           const browserEndTime = performance.now();
@@ -291,7 +252,7 @@ For additional information, please refer to:
       const renderEndTime = performance.now();
       performanceValues.rend = { dur: renderEndTime - renderStartTime };
 
-      return { version, /*versionInfo*/ pdf };
+      return { version, pdf };
     } finally {
       if (page) {
         await page.close();
@@ -299,15 +260,18 @@ For additional information, please refer to:
 
       if (browser) {
         await browserPool.destroy(browser);
-        // await browser.close();
-        // } else if (client) {
-        //   await client.close();
       }
 
       const endTime = performance.now();
       performanceValues.tot = { dur: endTime - startTime };
     }
   }
+
+  await browserPool.ready();
+
+  app.get("/health", (req, res) => {
+    res.sendStatus(200);
+  });
 
   app.use((error, req, res, next) => {
     console.error(error);

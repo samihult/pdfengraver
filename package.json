@@ -1,6 +1,6 @@
 {
   "name": "pdfengraver",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Yet another headless Chrome PDF generator",
   "main": "index.js",
   "engines": {
