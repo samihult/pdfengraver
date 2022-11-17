@@ -1,4 +1,4 @@
-FROM justinribeiro/chrome-headless:stable
+FROM node:18.12.1-slim
 
 LABEL name="pdfengraver" \
 	maintainer="Sami Hult <sami.hult@gmail.com>" \
@@ -7,28 +7,32 @@ LABEL name="pdfengraver" \
 
 USER root
 
-WORKDIR /home/chrome
-COPY --chown=chrome:chrome package.json package-lock.json ./
-
-RUN set -x \
-    && apt-get update && apt-get install -y tini procps gnupg2 curl netcat jq \
-    && NODE_VERSION=$(jq -r .engines.node package.json) \
-    && DEB_FILE="nodejs_${NODE_VERSION}-1nodesource1_amd64.deb" \
-    && curl -sLO "https://deb.nodesource.com/node_18.x/pool/main/n/nodejs/${DEB_FILE}" \
-    && apt-get install -y ./"${DEB_FILE}" && rm "${DEB_FILE}" \
-    && curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
-    && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
-    && apt-get update && apt-get install -y yarn \
+RUN apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
+      --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=chrome:chrome src ./src
-COPY --chown=chrome:chrome playground ./playground
+ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_x86_64 /usr/local/bin/dumb-init
+RUN chmod +x /usr/local/bin/dumb-init
 
-USER chrome
+WORKDIR /home/pptruser
+RUN groupadd -r pptruser &&  \
+    useradd -r -g pptruser -G audio,video pptruser && \
+    chown -R pptruser:pptruser /home/pptruser
+
+COPY --chown=pptruser:pptruser package.json package-lock.json ./
+COPY --chown=pptruser:pptruser src ./src
+COPY --chown=pptruser:pptruser playground ./playground
+
+USER pptruser
 RUN npm install --omit=dev --quiet
 
 VOLUME /local-assets
 EXPOSE 5045
 
-ENTRYPOINT [ "/usr/bin/tini", "--" ]
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "src/index.js"]

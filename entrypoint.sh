@@ -7,7 +7,6 @@ google-chrome --headless \
   --disable-web-security \
   --enable-local-file-accesses \
   --allow-file-access-from-files \
-  --no-sandbox --disable-setuid-sandbox \
   --disable-dev-shm-usage --disable-gpu \
   --disable-audio-input --disable-audio-output \
   --disable-breakpad --no-crash-upload \
