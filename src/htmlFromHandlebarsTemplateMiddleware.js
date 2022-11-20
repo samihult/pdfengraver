@@ -1,12 +1,11 @@
-const path = require("path");
-const { readFileSync } = require("fs");
-const { readFile } = require("fs/promises");
-const Handlebars = require("handlebars");
-
 const { withPerformanceBudget } = require("./performanceBudgeting");
+const { readFile } = require("fs/promises");
+const path = require("path");
+const Handlebars = require("handlebars");
+const { readFileSync } = require("fs");
 
-async function generateHandlebarsHtml(req, res) {
-  return await withPerformanceBudget(
+async function htmlFromHandlebarsTemplateMiddleware(req, res, next) {
+  res.locals.html = await withPerformanceBudget(
     res.locals.timeouts,
     res.locals.serverTimings,
     "tmpl",
@@ -56,8 +55,10 @@ async function generateHandlebarsHtml(req, res) {
       return template(req.body);
     }
   );
+
+  return next();
 }
 
 module.exports = {
-  generateHandlebarsHtml,
+  htmlFromHandlebarsTemplateMiddleware,
 };

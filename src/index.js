@@ -2,12 +2,16 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 
-const { resolveContentLocation } = require("./resolveContentLocation");
-const { generateHandlebarsHtml } = require("./generateHandlebarsHtml");
 const { composeServerTimingHeader } = require("./composeServerTimingHeader");
+const { resolveContentLocation } = require("./resolveContentLocation");
+const { htmlFromBodyMiddleware } = require("./htmlFromBodyMiddleware");
+const { generatePdfMiddleware } = require("./generatePdfMiddleware");
 const { listeningMessage } = require("./listeningMessage");
 const { browserPool } = require("./browserPool");
-const { generatePdf } = require("./generatePdf");
+
+const {
+  htmlFromHandlebarsTemplateMiddleware,
+} = require("./htmlFromHandlebarsTemplateMiddleware");
 
 const {
   withPerformanceBudget,
@@ -48,48 +52,13 @@ async function run() {
     return next();
   });
 
-  app.post("/conv", async (req, res, next) => {
-    try {
-      await withPerformanceBudget(
-        res.locals.timeouts,
-        res.locals.serverTimings,
-        "total",
-        async () => {
-          const { pdf, version } = await generatePdf(req.body, res.locals);
+  app.post("/conv", htmlFromBodyMiddleware, generatePdfMiddleware);
 
-          res
-            .header("Server-Timing", res.locals.serverTimingsHeader())
-            .header("X-Powered-By", version)
-            .contentType("application/pdf")
-            .send(pdf);
-        }
-      );
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/tmpl/:filename", async (req, res, next) => {
-    try {
-      await withPerformanceBudget(
-        res.locals.timeouts,
-        res.locals.serverTimings,
-        "total",
-        async () => {
-          const html = await generateHandlebarsHtml(req, res);
-          const { pdf, version } = await generatePdf(html, res.locals);
-
-          res
-            .header("Server-Timing", res.locals.serverTimingsHeader())
-            .header("X-Powered-By", version)
-            .contentType("application/pdf")
-            .send(pdf);
-        }
-      );
-    } catch (error) {
-      next(error);
-    }
-  });
+  app.post(
+    "/tmpl/:filename",
+    htmlFromHandlebarsTemplateMiddleware,
+    generatePdfMiddleware
+  );
 
   app.listen(apiPort, () => {
     console.log(listeningMessage({ apiPort, baseUrl }));
