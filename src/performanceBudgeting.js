@@ -1,3 +1,5 @@
+const { performance } = require("perf_hooks");
+
 const minTimeouts = {
   tmpl: 50,
   init: 10,
@@ -65,8 +67,10 @@ function resolveTimeout(name, input) {
   return value;
 }
 
-async function withTimeout(timeouts, name, callback) {
+async function withPerformanceBudget(timeouts, timings, name, callback) {
   return new Promise((resolve, reject) => {
+    const startTime = performance.now();
+
     const timeoutHandle = setTimeout(() => {
       reject(new Error(`Budget exceeded (${name}, ${timeouts[name]} ms)`));
     }, timeouts[name]);
@@ -74,11 +78,15 @@ async function withTimeout(timeouts, name, callback) {
     Promise.resolve(callback())
       .then(resolve)
       .catch(reject)
-      .finally(() => clearTimeout(timeoutHandle));
+      .finally(() => {
+        clearTimeout(timeoutHandle);
+        const endTime = performance.now();
+        timings[name] = { dur: endTime - startTime };
+      });
   });
 }
 
 module.exports = {
   resolvePerformanceBudget,
-  withTimeout,
+  withPerformanceBudget,
 };

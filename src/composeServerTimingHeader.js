@@ -1,6 +1,4 @@
-const performanceValues = {};
-
-function serverTimings() {
+function composeServerTimingHeader(performanceValues) {
   return Object.entries(performanceValues)
     .map(([key, { dur, desc }]) => {
       const parts = [
@@ -14,6 +12,5 @@ function serverTimings() {
 }
 
 module.exports = {
-  performanceValues,
-  serverTimings,
+  composeServerTimingHeader,
 };

@@ -47,13 +47,13 @@ EOF
 
 Server-Timing headers can be interpreted as follows:
 
-| name | Time spent (ms)                           |
-| ---- | ----------------------------------------- |
-| tmpl | Executing a template                      |
-| init | Opening connection to the headless Chrome |
-| load | Loading the document                      |
-| rend | Rendering PDF                             |
-| tot  | Total time                                |
+| name  | Time spent (ms)                           |
+|-------| ----------------------------------------- |
+| tmpl  | Executing a template                      |
+| init  | Opening connection to the headless Chrome |
+| load  | Loading the document                      |
+| rend  | Rendering PDF                             |
+| total | Total time                                |
 
 ## Location
 
@@ -102,7 +102,7 @@ Mounting the volume:
 ```shell
 docker run --rm -it -p 5045:5045 \
   --volume "$(pwd)/assets":/assets \
-  --name pe samihult/pdfengraver
+  --name pe samihult/pdfengraver:latest
 ```
 
 Then, for example, having `picture.png` in the mounted `assets/img` directory, it can

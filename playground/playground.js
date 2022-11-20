@@ -165,8 +165,8 @@ function setServerTimingString(serverTiming) {
     container.querySelector(".rend").innerText = timings.rend
       ? timings.rend.dur
       : "–";
-    container.querySelector(".tot").innerText = timings.tot
-      ? timings.tot.dur
+    container.querySelector(".total").innerText = timings.tot
+      ? timings.total.dur
       : "–";
   }
 }
