@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const httpErrors = require("http-errors");
 
 const { composeServerTimingHeader } = require("./composeServerTimingHeader");
 const { resolveContentLocation } = require("./resolveContentLocation");
@@ -71,7 +72,15 @@ async function run() {
   });
 
   app.use((error, req, res, next) => {
-    console.error(error);
+    if (httpErrors.isHttpError(error)) {
+      const { message, statusCode } = error;
+      console.error(statusCode, error);
+      return res
+        .header("Server-Timing", res.locals.serverTimingsHeader())
+        .status(statusCode)
+        .send(`${statusCode} ${message}`);
+    }
+
     res.status(500).send(error.message);
   });
 }

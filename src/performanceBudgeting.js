@@ -1,4 +1,5 @@
 const { performance } = require("perf_hooks");
+const httpErrors = require("http-errors");
 
 const minTimeouts = {
   tmpl: 50,
@@ -72,7 +73,12 @@ async function withPerformanceBudget(timeouts, timings, name, callback) {
     const startTime = performance.now();
 
     const timeoutHandle = setTimeout(() => {
-      reject(new Error(`Budget exceeded (${name}, ${timeouts[name]} ms)`));
+      reject(
+        httpErrors(
+          408,
+          `Performance budget exceeded (${name}, ${timeouts[name]} ms)`
+        )
+      );
     }, timeouts[name]);
 
     Promise.resolve(callback())
